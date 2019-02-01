@@ -1,7 +1,7 @@
-from DQN import DQN
-from maze import Maze
 import numpy as np
 
+from DQN import DQN
+from solve_maze.maze import Maze
 
 def print_all_Q_value(agent):
     stateList = [[x,y] for y in np.arange(-0.5, 0.5, 0.25) for x in np.arange(-0.5, 0.5, 0.25)]
@@ -12,11 +12,9 @@ def print_all_Q_value(agent):
     for i in range(stateList.shape[0]):
         print('the state:{} has Qvalue:{}'.format(stateList[i], qValue[i]))
 
-
-
 if __name__ == '__main__':
     env = Maze()
-    agent = DQN(run_name='Pong',
+    agent = DQN(run_name='Maze',
                 n_feature=2,
                 n_action=4,
                 n_l1=10,

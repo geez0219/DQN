@@ -4,12 +4,11 @@ import os
 import shutil
 
 
-class DQN:
+class DQN_base:
     def __init__(self,
                  run_name,
                  n_feature,
                  n_action,
-                 n_l1,
                  replay_buffer_size=10000,
                  train_epoch=1,
                  train_batch=32,
@@ -21,7 +20,6 @@ class DQN:
         self.run_name = run_name
         self.n_feature = n_feature
         self.n_action = n_action
-        self.n_l1 = n_l1
         self.replay_buffer_size = replay_buffer_size
         self.train_epoch = train_epoch
         self.train_batch = train_batch
@@ -35,7 +33,12 @@ class DQN:
         self._build_other()
         self.Sess = tf.Session()
         self.Sess.run(tf.global_variables_initializer())
-        if os.path.exists('./' + run_name):
+        self.deal_record_file()
+        self.Writer = tf.summary.FileWriter(self.run_name + '/tensorboard', self.Sess.graph)
+        self.update_target_network()
+
+    def deal_record_file(self):
+        if os.path.exists('./' + self.run_name):
             print('the run directory already exists!')
             print('0: exist ')
             print('1: restored the session from checkPoint ')
@@ -54,34 +57,38 @@ class DQN:
             else:
                 raise ValueError('the valid actions are in range [0-3]')
 
-        self.Writer = tf.summary.FileWriter(self.run_name + '/tensorboard', self.Sess.graph)
-        self.update_target_network()
-
     def _build_network(self):
+        '''
+        the template of the _build_network
+        ----------------------------------------------------------------------------------------------------------
         self.S1 = tf.placeholder(tf.float32, shape=[None, self.n_feature])
         self.S2 = tf.placeholder(tf.float32, shape=[None, self.n_feature])
         self.A = tf.placeholder(tf.int32, shape=[None])
         self.R = tf.placeholder(tf.float32, shape=[None])
         self.D = tf.placeholder(tf.float32, shape=[None])
 
+
         def network(input, name, trainable):
             initializer = tf.contrib.layers.xavier_initializer()
             c_name = [name, tf.GraphKeys.GLOBAL_VARIABLES]
-            Weight = {'fc1': tf.get_variable(name+'\/w_fc1', [self.n_feature, self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),
-                      'out': tf.get_variable(name+'\/w_out', [self.n_l1, self.n_action], initializer=initializer, collections=c_name, trainable=trainable)}
 
-            Bias = {'fc1': tf.get_variable(name+'\/b_fc1', [self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),
-                    'out': tf.get_variable(name+'\/b_out', [self.n_action], initializer=initializer, collections=c_name, trainable=trainable)}
+            --------------------------------- change start here ---------------------------------------------------
+            Weight = {'fc1': tf.get_variable(name+'_w_fc1', [self.n_feature, self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),
+                      'out': tf.get_variable(name+'_w_out', [self.n_l1, self.n_action], initializer=initializer, collections=c_name, trainable=trainable)}
+
+            Bias = {'fc1': tf.get_variable(name+'_b_fc1', [self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),
+                    'out': tf.get_variable(name+'_b_out', [self.n_action], initializer=initializer, collections=c_name, trainable=trainable)}
 
             L1 = tf.nn.relu(tf.matmul(input, Weight['fc1']) + Bias['fc1'])
-            L2 = tf.matmul(L1, Weight['out']) + Bias['out']
+            output = tf.matmul(L1, Weight['out']) + Bias['out']
 
             Summary = [tf.summary.histogram('w_fc1', Weight['fc1']),
                        tf.summary.histogram('w_out', Weight['out']),
                        tf.summary.histogram('b_fc1', Bias['fc1']),
                        tf.summary.histogram('b_out', Bias['out'])]
 
-            return L2, Summary
+            --------------------------------- change stop here ---------------------------------------------------
+            return output, Summary
 
 
         with tf.name_scope('eval_net'):
@@ -98,6 +105,9 @@ class DQN:
         self.Regre_value = self.Q_targ_max_value * self.gamma * (1-self.D) + self.R
         self.Loss = tf.reduce_mean(tf.square(self.Q_eval_spec_a - self.Regre_value))
         self.Train = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.Loss)
+        '''
+
+        raise NotImplementedError("Subclass should implement this")
 
     def _build_other(self):
         self.Saver = tf.train.Saver()
