@@ -7,7 +7,7 @@ import shutil
 class DQN_base:
     def __init__(self,
                  run_name,
-                 n_feature,
+                 input_shape,
                  n_action,
                  replay_buffer_size=10000,
                  train_epoch=1,
@@ -18,7 +18,7 @@ class DQN_base:
                  learning_rate=5e-4,
                  ):
         self.run_name = run_name
-        self.n_feature = n_feature
+        self.input_shape = input_shape
         self.n_action = n_action
         self.replay_buffer_size = replay_buffer_size
         self.train_epoch = train_epoch

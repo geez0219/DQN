@@ -1,13 +1,11 @@
 import numpy as np
 import tensorflow as tf
-import os
-import shutil
 from DQN_base import DQN_base
 
 class DQN(DQN_base):
     def __init__(self,
                  run_name,
-                 n_feature,
+                 input_shape,
                  n_action,
                  n_l1,
                  replay_buffer_size=10000,
@@ -21,7 +19,7 @@ class DQN(DQN_base):
 
         self.n_l1 = n_l1
         super().__init__(run_name=run_name,
-                         n_feature=n_feature,
+                         input_shape=input_shape,
                          n_action=n_action,
                          replay_buffer_size=replay_buffer_size,
                          train_epoch=train_epoch,
@@ -34,8 +32,8 @@ class DQN(DQN_base):
 
 
     def _build_network(self):
-        self.S1 = tf.placeholder(tf.float32, shape=[None, self.n_feature])
-        self.S2 = tf.placeholder(tf.float32, shape=[None, self.n_feature])
+        self.S1 = tf.placeholder(tf.float32, shape=[None]+self.input_shape)
+        self.S2 = tf.placeholder(tf.float32, shape=[None]+self.input_shape)
         self.A = tf.placeholder(tf.int32, shape=[None])
         self.R = tf.placeholder(tf.float32, shape=[None])
         self.D = tf.placeholder(tf.float32, shape=[None])
@@ -43,7 +41,7 @@ class DQN(DQN_base):
         def network(input, name, trainable):
             initializer = tf.contrib.layers.xavier_initializer()
             c_name = [name, tf.GraphKeys.GLOBAL_VARIABLES]
-            Weight = {'fc1': tf.get_variable(name+'_w_fc1', [self.n_feature, self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),
+            Weight = {'fc1': tf.get_variable(name+'_w_fc1', [self.input_shape[0], self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),
                       'out': tf.get_variable(name+'_w_out', [self.n_l1, self.n_action], initializer=initializer, collections=c_name, trainable=trainable)}
 
             Bias = {'fc1': tf.get_variable(name+'_b_fc1', [self.n_l1], initializer=initializer, collections=c_name, trainable=trainable),

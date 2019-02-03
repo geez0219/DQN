@@ -1,6 +1,6 @@
 import numpy as np
 
-from DQN import DQN
+from solve_maze.DQN import DQN
 from solve_maze.maze import Maze
 
 def print_all_Q_value(agent):
@@ -15,7 +15,7 @@ def print_all_Q_value(agent):
 if __name__ == '__main__':
     env = Maze()
     agent = DQN(run_name='Maze',
-                n_feature=2,
+                input_shape=[2],
                 n_action=4,
                 n_l1=10,
                 replay_buffer_size=10000,
