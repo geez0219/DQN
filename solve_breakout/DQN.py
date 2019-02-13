@@ -17,7 +17,8 @@ class DQN(DQN_base):
                  gamma=0.9,
                  epislon_decrease=1/5000,
                  epislon_min=0.025,
-                 learning_rate=5e-4
+                 learning_rate=5e-4,
+                 save_path='./'
                  ):
 
         self.conv_size = conv_size
@@ -33,17 +34,16 @@ class DQN(DQN_base):
                          gamma=gamma,
                          epislon_decrease=epislon_decrease,
                          epislon_min=epislon_min,
-                         learning_rate=learning_rate
+                         learning_rate=learning_rate,
+                         save_path=save_path
                          )
 
-
     def _build_network(self):
-        self.S1 = tf.placeholder(tf.float32, shape=[None]+self.input_shape)
-        self.S2 = tf.placeholder(tf.float32, shape=[None]+self.input_shape)
-        self.A = tf.placeholder(tf.int32, shape=[None])
-        self.R = tf.placeholder(tf.float32, shape=[None])
-        self.D = tf.placeholder(tf.float32, shape=[None])
-
+        self.S1 = tf.placeholder(tf.float32, shape=[None]+self.input_shape, name='obs1')
+        self.S2 = tf.placeholder(tf.float32, shape=[None]+self.input_shape, name='obs2')
+        self.A = tf.placeholder(tf.int32, shape=[None], name='action')
+        self.R = tf.placeholder(tf.float32, shape=[None], name='reward')
+        self.D = tf.placeholder(tf.float32, shape=[None], name='terminate')
 
         def conv2d(x, w):
             return tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='SAME')
@@ -83,8 +83,8 @@ class DQN(DQN_base):
             maxpool1 = maxpool(conv1)
             conv2 = tf.nn.relu(conv2d(maxpool1, weight['conv2']) + bias['conv2'])
             maxpool2 = maxpool(conv2)
-            flattend = tf.reshape(maxpool2, shape=[-1, int((self.input_shape[0]/4)*(self.input_shape[0]/4)*self.conv2_depth)])
-            fc1 = tf.nn.relu(tf.matmul(flattend, weight['fc1']) + bias['fc1'])
+            flattened = tf.reshape(maxpool2, shape=[-1, int((self.input_shape[0]/4)*(self.input_shape[0]/4)*self.conv2_depth)])
+            fc1 = tf.nn.relu(tf.matmul(flattened, weight['fc1']) + bias['fc1'])
             out = tf.matmul(fc1, weight['out']) + bias['out']
 
             Summary = [tf.summary.histogram('w_conv1', weight['fc1']),

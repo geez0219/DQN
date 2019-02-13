@@ -5,7 +5,7 @@ from environment import Environment
 
 if __name__ == '__main__':
     env = Environment('BreakoutNoFrameskip-v4', 0, atari_wrapper=True)
-    agent = DQN(run_name='Breakout',
+    agent = DQN(run_name='Breakout-hope2',
                 input_shape=[84,84,4],
                 n_action=4,
                 conv_size=5,
@@ -15,16 +15,16 @@ if __name__ == '__main__':
                 replay_buffer_size=10000,
                 train_epoch=1,
                 train_batch=32,
-                gamma=0.9,
-                epislon_decrease=1/5000,
+                gamma=1,
+                epislon_decrease=1/50000,
                 epislon_min=0.025,
                 learning_rate=5e-4,
                 )
 
-    game_play = 10000
-    save_period = 10
+    game_play = 100000
+    save_period = 100
     train_period = 4
-    update_period = 1000
+    update_period = 2500
     for i in range(game_play):
         obs = env.reset()
         done = 0

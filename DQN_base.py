@@ -16,6 +16,7 @@ class DQN_base:
                  epislon_decrease=1/5000,
                  epislon_min=0.025,
                  learning_rate=5e-4,
+                 save_path='./'
                  ):
         self.run_name = run_name
         self.input_shape = input_shape
@@ -27,15 +28,28 @@ class DQN_base:
         self.epislon_decrease = epislon_decrease
         self.epislon_min = epislon_min
         self.learning_rate = learning_rate
-        self.memory_s, self.memory_a, self.memory_r, self.memory_s2, self.memory_d = [], [], [], [], []
+        self.memory_s = np.zeros([replay_buffer_size, ] + input_shape)
+        self.memory_s2 = np.zeros([replay_buffer_size, ] + input_shape)
+        self.memory_a = np.zeros([replay_buffer_size])
+        self.memory_r = np.zeros([replay_buffer_size])
+        self.memory_d = np.zeros([replay_buffer_size])
+        self.memory_counter = 0
+
+        # self.memory_a, self.memory_r, self.memory_s2, self.memory_d = [], [], [], [], []
+
+        if save_path[-1] != '/':
+            self.save_path = save_path + '/'
+        else:
+            self.save_path = save_path
 
         self._build_network()
         self._build_other()
         self.Sess = tf.Session()
         self.Sess.run(tf.global_variables_initializer())
         self.deal_record_file()
-        self.Writer = tf.summary.FileWriter(self.run_name + '/tensorboard', self.Sess.graph)
+        self.Writer = tf.summary.FileWriter(self.save_path + self.run_name + '/tensorboard', self.Sess.graph)
         self.update_target_network()
+
 
     def deal_record_file(self):
         if os.path.exists('./' + self.run_name):
@@ -142,51 +156,66 @@ class DQN_base:
         return action
 
     def store_transition(self, obs, action, reward, obs_, done):
-        self.memory_s.append(obs)
-        self.memory_a.append(action)
-        self.memory_r.append(reward)
-        self.memory_s2.append(obs_)
-        self.memory_d.append(done)
-        current_m_size = len(self.memory_s)
-        if len(self.memory_s) > self.replay_buffer_size:
-            self.memory_s = self.memory_s[current_m_size - self.replay_buffer_size:]
-            self.memory_a = self.memory_a[current_m_size - self.replay_buffer_size:]
-            self.memory_r = self.memory_r[current_m_size - self.replay_buffer_size:]
-            self.memory_s2 = self.memory_s2[current_m_size - self.replay_buffer_size:]
-            self.memory_d = self.memory_d[current_m_size - self.replay_buffer_size:]
+        memory_idx = self.memory_counter % self.replay_buffer_size
+
+        self.memory_s[memory_idx] = obs
+        self.memory_s2[memory_idx] = obs_
+        self.memory_a[memory_idx] = action
+        self.memory_r[memory_idx] = reward
+        self.memory_d[memory_idx] = done
+        self.memory_counter += 1
+
+
+        # if len(self.memory_s) > self.replay_buffer_size:
+        #     self.memory_s = self.memory_s[current_m_size - self.replay_buffer_size:]
+        #     self.memory_a = self.memory_a[current_m_size - self.replay_buffer_size:]
+        #     self.memory_r = self.memory_r[current_m_size - self.replay_buffer_size:]
+        #     self.memory_s2 = self.memory_s2[current_m_size - self.replay_buffer_size:]
+        #     self.memory_d = self.memory_d[current_m_size - self.replay_buffer_size:]
 
     def train(self):
-        current_m_size = len(self.memory_s)
-        total_loss = np.zeros(self.train_epoch)
+        # total_loss = np.zeros(self.train_epoch)
+        # for i in range(self.train_epoch):
+        #     rand_idx = np.random.permutation(current_m_size)
+        #     s1_array = np.array(self.memory_s)[rand_idx]
+        #     a_array = np.array(self.memory_a)[rand_idx]
+        #     r_array = np.array(self.memory_r)[rand_idx]
+        #     s2_array = np.array(self.memory_s2)[rand_idx]
+        #     d_array = np.array(self.memory_d)[rand_idx]
+        #
+        #     for j in range(0, current_m_size-self.train_batch, self.train_batch):
+        #         _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1_array[j:j+self.train_batch],
+        #                                                                     self.A: a_array[j:j+self.train_batch],
+        #                                                                     self.R: r_array[j:j+self.train_batch],
+        #                                                                     self.S2: s2_array[j:j+self.train_batch],
+        #                                                                     self.D: d_array[j:j+self.train_batch]})
+        #         total_loss[i] += loss
+        # total_loss_mean = np.mean(total_loss)
 
-        for i in range(self.train_epoch):
-            rand_idx = np.random.permutation(current_m_size)
-            s1_array = np.array(self.memory_s)[rand_idx]
-            a_array = np.array(self.memory_a)[rand_idx]
-            r_array = np.array(self.memory_r)[rand_idx]
-            s2_array = np.array(self.memory_s2)[rand_idx]
-            d_array = np.array(self.memory_d)[rand_idx]
+        rand_idx = np.random.choice(min(self.memory_counter, self.replay_buffer_size), self.train_batch)
+        s1_array = self.memory_s[rand_idx]
+        s2_array = self.memory_s2[rand_idx]
+        a_array = self.memory_a[rand_idx]
+        r_array = self.memory_r[rand_idx]
+        d_array = self.memory_d[rand_idx]
+        _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1_array,
+                                                                    self.A: a_array,
+                                                                    self.R: r_array,
+                                                                    self.S2: s2_array,
+                                                                    self.D: d_array})
 
-            for j in range(0, current_m_size-self.train_batch, self.train_batch):
-                _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1_array[j:j+self.train_batch],
-                                                                            self.A: a_array[j:j+self.train_batch],
-                                                                            self.R: r_array[j:j+self.train_batch],
-                                                                            self.S2: s2_array[j:j+self.train_batch],
-                                                                            self.D: d_array[j:j+self.train_batch]})
-                total_loss[i] += loss
-        total_loss_mean = np.mean(total_loss)
 
-        result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight,self.Step], feed_dict={self.Loss_reflect: total_loss_mean})
+        result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight,self.Step], feed_dict={self.Loss_reflect: loss})
         self.Writer.add_summary(result1, step)
         self.Writer.add_summary(result2, step)
 
-        return total_loss_mean
+        return loss
 
     def save(self):
-        self.Saver.save(self.Sess, './{}/{}.ckpt'.format(self.run_name, self.run_name))
+        self.Saver.save(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
 
     def load(self):
-        self.Saver.restore(self.Sess, './{}/{}.ckpt'.format(self.run_name, self.run_name))
+        self.Saver.restore(self.Sess, '{]{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
 
     def clear_replay_buffer(self):
         self.memory_s, self.memory_a, self.memory_r, self.memory_s2, self.memory_d = [], [], [], [], []
@@ -201,3 +230,10 @@ class DQN_base:
 
     def update_target_network(self):
         self.Sess.run(self.Update_target)
+
+    def clear_graph(self):
+        tf.reset_default_graph()
+
+    def close_model(self):
+        self.Sess.close()
+
