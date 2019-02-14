@@ -124,8 +124,6 @@ class DQN_base:
         raise NotImplementedError("Subclass should implement this")
 
     def _build_other(self):
-        self.Saver = tf.train.Saver()
-
         with tf.name_scope('assign_target_net'):
             t_params = tf.get_collection('targ_net')
             e_params = tf.get_collection('eval_net')
@@ -135,13 +133,15 @@ class DQN_base:
             self.Loss_reflect = tf.placeholder(tf.float32, shape=None)
             self.Reward_reflect = tf.placeholder(tf.float32, shape=None)
 
+        with tf.name_scope('step_counter'):
+            self.Step = tf.Variable(tf.constant(0), dtype=tf.int32)
+            self.Step_move = tf.assign(self.Step, self.Step + tf.constant(1))
+
         with tf.name_scope('summary'):
             self.Summary_loss = tf.summary.scalar('loss', self.Loss_reflect)
             self.Summary_reward = tf.summary.scalar('total_reward', self.Reward_reflect)
 
-        with tf.name_scope('step_counter'):
-            self.Step = tf.Variable(tf.constant(0), dtype=tf.int32)
-            self.Step_move = tf.assign(self.Step, self.Step + tf.constant(1))
+        self.Saver = tf.train.Saver()
 
     def choose_action(self, obs):
         step = self.Sess.run(self.Step)
@@ -164,14 +164,6 @@ class DQN_base:
         self.memory_r[memory_idx] = reward
         self.memory_d[memory_idx] = done
         self.memory_counter += 1
-
-
-        # if len(self.memory_s) > self.replay_buffer_size:
-        #     self.memory_s = self.memory_s[current_m_size - self.replay_buffer_size:]
-        #     self.memory_a = self.memory_a[current_m_size - self.replay_buffer_size:]
-        #     self.memory_r = self.memory_r[current_m_size - self.replay_buffer_size:]
-        #     self.memory_s2 = self.memory_s2[current_m_size - self.replay_buffer_size:]
-        #     self.memory_d = self.memory_d[current_m_size - self.replay_buffer_size:]
 
     def train(self):
         # total_loss = np.zeros(self.train_epoch)
@@ -205,7 +197,7 @@ class DQN_base:
                                                                     self.D: d_array})
 
 
-        result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight,self.Step], feed_dict={self.Loss_reflect: loss})
+        result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight, self.Step], feed_dict={self.Loss_reflect: loss})
         self.Writer.add_summary(result1, step)
         self.Writer.add_summary(result2, step)
 
@@ -215,10 +207,15 @@ class DQN_base:
         self.Saver.save(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
 
     def load(self):
-        self.Saver.restore(self.Sess, '{]{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
+        self.Saver.restore(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
 
     def clear_replay_buffer(self):
-        self.memory_s, self.memory_a, self.memory_r, self.memory_s2, self.memory_d = [], [], [], [], []
+        self.memory_s = np.zeros([self.replay_buffer_size, ] + self.input_shape)
+        self.memory_s2 = np.zeros([self.replay_buffer_size, ] + self.input_shape)
+        self.memory_a = np.zeros([self.replay_buffer_size])
+        self.memory_r = np.zeros([self.replay_buffer_size])
+        self.memory_d = np.zeros([self.replay_buffer_size])
+        self.memory_counter = 0
 
     def step_move(self):
         step = self.Sess.run(self.Step_move)
