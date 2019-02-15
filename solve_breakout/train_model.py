@@ -1,11 +1,11 @@
 import numpy as np
 import gym
-from solve_breakout.DQN import DQN
+from solve_breakout.DQN_copy import DQN
 from environment import Environment
 
 if __name__ == '__main__':
     env = Environment('BreakoutNoFrameskip-v4', 0, atari_wrapper=True)
-    agent = DQN(run_name='Breakout-hope2',
+    agent = DQN(run_name='solve_breakout_DQN_copy',
                 input_shape=[84,84,4],
                 n_action=4,
                 conv_size=5,
@@ -15,13 +15,13 @@ if __name__ == '__main__':
                 replay_buffer_size=10000,
                 train_epoch=1,
                 train_batch=32,
-                gamma=1,
+                gamma=0.99,
                 epislon_decrease=1/50000,
                 epislon_min=0.025,
                 learning_rate=5e-4,
                 )
 
-    game_play = 100000
+    game_play = 200000
     save_period = 100
     train_period = 4
     update_period = 2500
@@ -30,6 +30,7 @@ if __name__ == '__main__':
         done = 0
         total_reward = 0
         step = agent.step_move()
+
         while not done:
             action = agent.choose_action(obs)
             obs_, reward, done, _ = env.step(action)

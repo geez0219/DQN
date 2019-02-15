@@ -12,11 +12,11 @@ class DQN_base:
                  replay_buffer_size=10000,
                  train_epoch=1,
                  train_batch=32,
-                 gamma=0.9,
+                 gamma=0.99,
                  epislon_decrease=1/5000,
                  epislon_min=0.025,
                  learning_rate=5e-4,
-                 save_path='./'
+                 save_path='./result/'
                  ):
         self.run_name = run_name
         self.input_shape = input_shape

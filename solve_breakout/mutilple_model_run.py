@@ -39,14 +39,14 @@ if __name__ == '__main__':
                     conv1_depth=para[j][0],
                     conv2_depth=para[j][1],
                     fc1_depth=para[j][2],
-                    replay_buffer_size=10000,
+                    replay_buffer_size=100000,
                     train_epoch=1,
                     train_batch=32,
-                    gamma=1,
+                    gamma=0.99,
                     epislon_decrease=1/50000,
                     epislon_min=0.025,
-                    learning_rate=1.5e-4,
-                    save_path='./' + folder_name
+                    learning_rate=5e-4,
+                    save_path='./result/' + folder_name
                     )
 
         game_play = 100000
