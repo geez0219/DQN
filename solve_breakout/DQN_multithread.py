@@ -1,30 +1,30 @@
 import numpy as np
 import tensorflow as tf
-from DQN_base import DQN_base
+from multithread_base import multithread_base
 
-class DQN(DQN_base):
+class DQN(multithread_base):
     def __init__(self,
                  run_name,
                  input_shape,
                  n_action,
-                 replay_buffer_size=10000,
                  train_epoch=1,
                  train_batch=32,
                  gamma=0.99,
                  learning_rate=5e-4,
-                 save_path='./result/'
-                 ):
+                 record_io=True,
+                 save_path='./result/',
+                 gpu_fraction=0.9):
 
         super().__init__(run_name=run_name,
                          input_shape=input_shape,
                          n_action=n_action,
-                         replay_buffer_size=replay_buffer_size,
                          train_epoch=train_epoch,
                          train_batch=train_batch,
                          gamma=gamma,
                          learning_rate=learning_rate,
-                         save_path=save_path
-                         )
+                         record_io=record_io,
+                         save_path=save_path,
+                         gpu_fraction=gpu_fraction)
 
     def _build_network(self):
         self.S1 = tf.placeholder(tf.float32, shape=[None]+self.input_shape, name='obs1')

@@ -15,10 +15,8 @@ class DQN(DQN_base):
                  train_epoch=1,
                  train_batch=32,
                  gamma=0.9,
-                 epislon_decrease=1/5000,
-                 epislon_min=0.025,
                  learning_rate=5e-4,
-                 save_path='./'
+                 save_path='./result/'
                  ):
 
         self.conv_size = conv_size
@@ -32,8 +30,6 @@ class DQN(DQN_base):
                          train_epoch=train_epoch,
                          train_batch=train_batch,
                          gamma=gamma,
-                         epislon_decrease=epislon_decrease,
-                         epislon_min=epislon_min,
                          learning_rate=learning_rate,
                          save_path=save_path
                          )

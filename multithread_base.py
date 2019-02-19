@@ -3,45 +3,43 @@ import tensorflow as tf
 import os
 import shutil
 
-
-class DQN_base:
+class multithread_base:
     def __init__(self,
                  run_name,
                  input_shape,
                  n_action,
-                 replay_buffer_size=10000,
-                 train_epoch=1,
-                 train_batch=32,
-                 gamma=0.99,
-                 learning_rate=5e-4,
-                 save_path='./result/'
+                 train_epoch,
+                 train_batch,
+                 gamma,
+                 learning_rate,
+                 save_path,
+                 record_io,
+                 gpu_fraction
                  ):
+
         self.run_name = run_name
         self.input_shape = input_shape
         self.n_action = n_action
-        self.replay_buffer_size = replay_buffer_size
         self.train_epoch = train_epoch
         self.train_batch = train_batch
         self.gamma = gamma
         self.learning_rate = learning_rate
-        self.memory_s = np.zeros([replay_buffer_size, ] + input_shape)
-        self.memory_s2 = np.zeros([replay_buffer_size, ] + input_shape)
-        self.memory_a = np.zeros([replay_buffer_size])
-        self.memory_r = np.zeros([replay_buffer_size])
-        self.memory_d = np.zeros([replay_buffer_size])
-        self.memory_counter = 0
+        self.record_io = record_io
 
         if save_path[-1] != '/':
             self.save_path = save_path + '/'
         else:
             self.save_path = save_path
-
+        
+        if self.record_io is True:
+            self.deal_record_file()
         with tf.Graph().as_default():
             self._build_network()
             self._build_other()
-            self.Sess = tf.Session()
+            gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_fraction)
+            self.Sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
             self.Sess.run(tf.global_variables_initializer())
-        self.deal_record_file()
+
         self.Writer = tf.summary.FileWriter(self.save_path + self.run_name + '/tensorboard', self.Sess.graph)
         self.update_target_network()
 
@@ -57,7 +55,7 @@ class DQN_base:
             if mode == 0:
                 exit('you select to exist')
             elif mode == 1:
-                self.load()
+                self.load(self.save_path, self.run_name)
             elif mode == 2:
                 shutil.rmtree('{}{}'.format(self.save_path, self.run_name))
             elif mode == 3:
@@ -146,29 +144,12 @@ class DQN_base:
     def random_action(self):
         return np.random.choice(self.n_action)
 
-
-    def store_transition(self, obs, action, reward, obs_, done):
-        memory_idx = self.memory_counter % self.replay_buffer_size
-
-        self.memory_s[memory_idx] = obs
-        self.memory_s2[memory_idx] = obs_
-        self.memory_a[memory_idx] = action
-        self.memory_r[memory_idx] = reward
-        self.memory_d[memory_idx] = done
-        self.memory_counter += 1
-
-    def train(self, record):
-        rand_idx = np.random.choice(min(self.memory_counter, self.replay_buffer_size), self.train_batch)
-        s1_array = self.memory_s[rand_idx]
-        s2_array = self.memory_s2[rand_idx]
-        a_array = self.memory_a[rand_idx]
-        r_array = self.memory_r[rand_idx]
-        d_array = self.memory_d[rand_idx]
-        _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1_array,
-                                                                    self.A: a_array,
-                                                                    self.R: r_array,
-                                                                    self.S2: s2_array,
-                                                                    self.D: d_array})
+    def train(self, s1, s2, a, r, d, record):
+        _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1,
+                                                                    self.A: a,
+                                                                    self.R: r,
+                                                                    self.S2: s2,
+                                                                    self.D: d})
 
         if record is True:
             result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight, self.Step], feed_dict={self.Loss_reflect: loss})
@@ -180,16 +161,12 @@ class DQN_base:
     def save(self):
         self.Saver.save(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
 
-    def load(self):
-        self.Saver.restore(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
-
-    def clear_replay_buffer(self):
-        self.memory_s = np.zeros([self.replay_buffer_size, ] + self.input_shape)
-        self.memory_s2 = np.zeros([self.replay_buffer_size, ] + self.input_shape)
-        self.memory_a = np.zeros([self.replay_buffer_size])
-        self.memory_r = np.zeros([self.replay_buffer_size])
-        self.memory_d = np.zeros([self.replay_buffer_size])
-        self.memory_counter = 0
+    def load(self, load_path=None, run_name=None):
+        if load_path is None:
+            load_path = self.save_path
+        if run_name is None:
+            run_name = self.run_name
+        self.Saver.restore(self.Sess, '{}{}/{}.ckpt'.format(load_path, run_name, run_name))
 
     def step_move(self):
         step = self.Sess.run(self.Step_move)
