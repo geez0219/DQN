@@ -1,29 +1,28 @@
 import numpy as np
 import tensorflow as tf
-from multithread_base import multithread_base
+from multithread_base import MultithreadBase
 
-class DQN(multithread_base):
+
+class DQN(MultithreadBase):
     def __init__(self,
                  run_name,
                  input_shape,
                  n_action,
-                 train_epoch=1,
-                 train_batch=32,
-                 gamma=0.99,
-                 learning_rate=5e-4,
-                 record_io=True,
+                 gamma,
+                 learning_rate,
                  save_path='./result/',
-                 gpu_fraction=0.9):
+                 record_io=True,
+                 record=True,
+                 gpu_fraction=None):
 
         super().__init__(run_name=run_name,
                          input_shape=input_shape,
                          n_action=n_action,
-                         train_epoch=train_epoch,
-                         train_batch=train_batch,
                          gamma=gamma,
                          learning_rate=learning_rate,
-                         record_io=record_io,
                          save_path=save_path,
+                         record_io=record_io,
+                         record=record,
                          gpu_fraction=gpu_fraction)
 
     def _build_network(self):
@@ -32,7 +31,6 @@ class DQN(multithread_base):
         self.A = tf.placeholder(tf.int32, shape=[None], name='action')
         self.R = tf.placeholder(tf.float32, shape=[None], name='reward')
         self.D = tf.placeholder(tf.float32, shape=[None], name='terminate')
-
 
         def network(x, name, trainable):
             initializer = tf.contrib.layers.xavier_initializer()
@@ -51,7 +49,6 @@ class DQN(multithread_base):
 
                       'out': tf.get_variable(name+'_w_out', [512, 4],
                                              initializer=initializer, collections=c_name, trainable=trainable)}
-
 
             bias = {'conv1': tf.get_variable(name+'_b_conv1', [32],
                                              initializer=initializer, collections=c_name, trainable=trainable),

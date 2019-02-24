@@ -1,6 +1,7 @@
 import numpy as np
 
-class replay_buffer:
+
+class ReplayBuffer:
     def __init__(self, size, input_shape):
         self.size = size
         self.input_shape = input_shape
@@ -36,3 +37,6 @@ class replay_buffer:
         self.r = np.zeros([self.size])
         self.d = np.zeros([self.size])
         self.counter = 0
+
+    def get_current_size(self):
+        return min(self.size, self.counter)

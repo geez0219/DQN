@@ -3,44 +3,46 @@ import tensorflow as tf
 import os
 import shutil
 
-class multithread_base:
+class MultithreadBase:
     def __init__(self,
                  run_name,
                  input_shape,
                  n_action,
-                 train_epoch,
-                 train_batch,
                  gamma,
                  learning_rate,
                  save_path,
                  record_io,
-                 gpu_fraction
-                 ):
+                 record,
+                 gpu_fraction):
 
         self.run_name = run_name
         self.input_shape = input_shape
         self.n_action = n_action
-        self.train_epoch = train_epoch
-        self.train_batch = train_batch
         self.gamma = gamma
         self.learning_rate = learning_rate
         self.record_io = record_io
+        self.record = record
 
         if save_path[-1] != '/':
             self.save_path = save_path + '/'
         else:
             self.save_path = save_path
-        
-        if self.record_io is True:
-            self.deal_record_file()
+
         with tf.Graph().as_default():
             self._build_network()
             self._build_other()
-            gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_fraction)
-            self.Sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+            if gpu_fraction is None:
+                self.Sess = tf.Session()
+            else:
+                gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_fraction)
+                self.Sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
             self.Sess.run(tf.global_variables_initializer())
 
-        self.Writer = tf.summary.FileWriter(self.save_path + self.run_name + '/tensorboard', self.Sess.graph)
+        if self.record_io is True:
+            self.deal_record_file()
+
+        if self.record is True:
+            self.Writer = tf.summary.FileWriter(self.save_path + self.run_name + '/tensorboard', self.Sess.graph)
         self.update_target_network()
 
     def deal_record_file(self):
@@ -152,6 +154,8 @@ class multithread_base:
                                                                     self.D: d})
 
         if record is True:
+            if self.record is False:
+                raise ValueError('cannot record due to the agent of record is False')
             result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight, self.Step], feed_dict={self.Loss_reflect: loss})
             self.Writer.add_summary(result1, step)
             self.Writer.add_summary(result2, step)
@@ -173,6 +177,9 @@ class multithread_base:
         return step
 
     def log_reward(self, reward):
+        if self.record is False:
+            raise ValueError('cannot record due to the agent of record is False')
+
         result, step = self.Sess.run([self.Summary_reward, self.Step], feed_dict={self.Reward_reflect: reward})
         self.Writer.add_summary(result, step)
 
