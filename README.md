@@ -18,7 +18,7 @@ in the following tutorial, you need to
 ## train model 
 ### runing code:
 ```
-usage: train_model_full.py [-h] [-p SAVE_PATH] [-t THREAD_NUM] [-n GAME_NUM]
+usage: train_model.py [-h] [-p SAVE_PATH] [-t THREAD_NUM] [-n GAME_NUM]
                            [-u UPDATE_PERIOD] [-e1 EPSILON_MIN]
                            [-e2 EPSILON_DECREASE] [-g GAMMA]
                            [-l LEARNING_RATE] [-d1] [-d2]
