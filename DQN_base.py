@@ -1,35 +1,33 @@
+"""
+update:
+3/22/2019: change the structure for better network constructing function
+3/21/2019: change the structure for double DQN and Dueling DQN
+"""
+
 import numpy as np
 import tensorflow as tf
 import os
 import shutil
 
-
-class DQN_base:
+class DQN_Base:
     def __init__(self,
                  run_name,
                  input_shape,
                  n_action,
-                 replay_buffer_size=10000,
-                 train_epoch=1,
-                 train_batch=32,
-                 gamma=0.99,
-                 learning_rate=5e-4,
-                 save_path='./result/'
-                 ):
+                 gamma,
+                 learning_rate,
+                 save_path,
+                 record_io,
+                 record,
+                 gpu_fraction):
+
         self.run_name = run_name
         self.input_shape = input_shape
         self.n_action = n_action
-        self.replay_buffer_size = replay_buffer_size
-        self.train_epoch = train_epoch
-        self.train_batch = train_batch
         self.gamma = gamma
         self.learning_rate = learning_rate
-        self.memory_s = np.zeros([replay_buffer_size, ] + input_shape)
-        self.memory_s2 = np.zeros([replay_buffer_size, ] + input_shape)
-        self.memory_a = np.zeros([replay_buffer_size])
-        self.memory_r = np.zeros([replay_buffer_size])
-        self.memory_d = np.zeros([replay_buffer_size])
-        self.memory_counter = 0
+        self.record_io = record_io
+        self.record = record
 
         if save_path[-1] != '/':
             self.save_path = save_path + '/'
@@ -39,15 +37,24 @@ class DQN_base:
         with tf.Graph().as_default():
             self._build_network()
             self._build_other()
-            self.Sess = tf.Session()
+            if gpu_fraction is None:
+                self.Sess = tf.Session()
+            else:
+                gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_fraction)
+                self.Sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
             self.Sess.run(tf.global_variables_initializer())
-        self.deal_record_file()
-        self.Writer = tf.summary.FileWriter(self.save_path + self.run_name + '/tensorboard', self.Sess.graph)
+
+        if self.record_io is True:
+            self.deal_record_file()
+
         self.update_target_network()
+
+        if self.record is True:
+            self.Writer = tf.summary.FileWriter(self.save_path + self.run_name + '/tensorboard', self.Sess.graph)
 
     def deal_record_file(self):
         if os.path.exists('{}{}'.format(self.save_path, self.run_name)):
-            print('the run directory already exists!')
+            print('the run directory [{}{}] already exists!'.format(self.save_path, self.run_name))
             print('0: exist ')
             print('1: restored the session from checkPoint ')
             print('2: start over and overwrite')
@@ -57,11 +64,12 @@ class DQN_base:
             if mode == 0:
                 exit('you select to exist')
             elif mode == 1:
-                self.load()
+                self.load(self.save_path, self.run_name)
             elif mode == 2:
                 shutil.rmtree('{}{}'.format(self.save_path, self.run_name))
             elif mode == 3:
                 self.run_name = input('please enter a new run name')
+                self.deal_record_file()
             else:
                 raise ValueError('the valid actions are in range [0-3]')
 
@@ -119,8 +127,8 @@ class DQN_base:
 
     def _build_other(self):
         with tf.name_scope('assign_target_net'):
-            t_params = tf.get_collection('targ_net')
-            e_params = tf.get_collection('eval_net')
+            t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, 'targ_net')
+            e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, 'eval_net')
             self.Update_target = [tf.assign(t, e) for t, e in zip(t_params, e_params)]
 
         with tf.name_scope('reflect'):
@@ -129,9 +137,12 @@ class DQN_base:
 
         with tf.name_scope('step_counter'):
             self.Step = tf.Variable(tf.constant(0), dtype=tf.int32)
-            self.Step_move = tf.assign(self.Step, self.Step + tf.constant(1))
+            self.Step_constant_1 = tf.constant(1, dtype=tf.int32)
+            self.Step_move = tf.assign(self.Step, self.Step + self.Step_constant_1)
 
         with tf.name_scope('summary'):
+            trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'eval_net')
+            self.Summary_weight = tf.summary.merge([tf.summary.histogram(var.name, var) for var in trainable_variables])
             self.Summary_loss = tf.summary.scalar('loss', self.Loss_reflect)
             self.Summary_reward = tf.summary.scalar('total_reward', self.Reward_reflect)
 
@@ -139,38 +150,23 @@ class DQN_base:
 
     def choose_action(self, obs):
         obs = np.expand_dims(obs, axis=0)
-        action = self.Sess.run(self.Q_eval_max_action, feed_dict={self.S1: obs})[0]
+        action = self.Sess.run(self.Q_eval_S1_max_action, feed_dict={self.S1: obs, self.S2: obs})[0] # change this line
 
         return action
 
     def random_action(self):
         return np.random.choice(self.n_action)
 
-
-    def store_transition(self, obs, action, reward, obs_, done):
-        memory_idx = self.memory_counter % self.replay_buffer_size
-
-        self.memory_s[memory_idx] = obs
-        self.memory_s2[memory_idx] = obs_
-        self.memory_a[memory_idx] = action
-        self.memory_r[memory_idx] = reward
-        self.memory_d[memory_idx] = done
-        self.memory_counter += 1
-
-    def train(self, record):
-        rand_idx = np.random.choice(min(self.memory_counter, self.replay_buffer_size), self.train_batch)
-        s1_array = self.memory_s[rand_idx]
-        s2_array = self.memory_s2[rand_idx]
-        a_array = self.memory_a[rand_idx]
-        r_array = self.memory_r[rand_idx]
-        d_array = self.memory_d[rand_idx]
-        _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1_array,
-                                                                    self.A: a_array,
-                                                                    self.R: r_array,
-                                                                    self.S2: s2_array,
-                                                                    self.D: d_array})
+    def train(self, s1, s2, a, r, d, record):
+        _, loss = self.Sess.run([self.Train, self.Loss], feed_dict={self.S1: s1,
+                                                                    self.A: a,
+                                                                    self.R: r,
+                                                                    self.S2: s2,
+                                                                    self.D: d})
 
         if record is True:
+            if self.record is False:
+                raise ValueError('cannot record due to the agent of record is False')
             result1, result2, step = self.Sess.run([self.Summary_loss, self.Summary_weight, self.Step], feed_dict={self.Loss_reflect: loss})
             self.Writer.add_summary(result1, step)
             self.Writer.add_summary(result2, step)
@@ -180,22 +176,21 @@ class DQN_base:
     def save(self):
         self.Saver.save(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
 
-    def load(self):
-        self.Saver.restore(self.Sess, '{}{}/{}.ckpt'.format(self.save_path, self.run_name, self.run_name))
-
-    def clear_replay_buffer(self):
-        self.memory_s = np.zeros([self.replay_buffer_size, ] + self.input_shape)
-        self.memory_s2 = np.zeros([self.replay_buffer_size, ] + self.input_shape)
-        self.memory_a = np.zeros([self.replay_buffer_size])
-        self.memory_r = np.zeros([self.replay_buffer_size])
-        self.memory_d = np.zeros([self.replay_buffer_size])
-        self.memory_counter = 0
+    def load(self, load_path=None, run_name=None):
+        if load_path is None:
+            load_path = self.save_path
+        if run_name is None:
+            run_name = self.run_name
+        self.Saver.restore(self.Sess, '{}{}/{}.ckpt'.format(load_path, run_name, run_name))
 
     def step_move(self):
         step = self.Sess.run(self.Step_move)
         return step
 
     def log_reward(self, reward):
+        if self.record is False:
+            raise ValueError('cannot record due to the agent of record is False')
+
         result, step = self.Sess.run([self.Summary_reward, self.Step], feed_dict={self.Reward_reflect: reward})
         self.Writer.add_summary(result, step)
 
@@ -205,3 +200,16 @@ class DQN_base:
     def close_model(self):
         self.Sess.close()
 
+    def model_pos_check(self):
+        '''
+        this extrally save the model graph of self.Sess and sess default for redundant declaration checking
+        '''
+
+        if self.record is False:
+            raise ValueError('cannot do model_pos_check if record is set to False')
+        else:
+            if not hasattr(self, 'Sess_default'):
+                self.Sess_default = tf.Session()
+
+            tf.summary.FileWriter(self.save_path + self.run_name + '/model_check/sess/', self.Sess.graph)
+            tf.summary.FileWriter(self.save_path + self.run_name + '/model_check/sess_default', self.Sess_default.graph)

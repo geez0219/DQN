@@ -8,8 +8,9 @@ import gym
 import numpy as np
 from atari_wrapper import make_wrap_atari
 
+
 class Environment(object):
-    def __init__(self, env_name, args, atari_wrapper=False, test=False):
+    def __init__(self, env_name, atari_wrapper=False, test=False):
         if atari_wrapper:
             clip_rewards = not test
             self.env = make_wrap_atari(env_name, clip_rewards)
@@ -35,7 +36,7 @@ class Environment(object):
             observation: np.array
                 current RGB screen of game, shape: (210, 160, 3)
         '''
-        observation = self.env.reset()
+        observation = self.env._reset()
 
         return np.array(observation)
 
@@ -76,3 +77,4 @@ class Environment(object):
 
     def render(self):
         self.env.render()
+

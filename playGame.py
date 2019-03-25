@@ -9,7 +9,7 @@ import keyboard
 from environment import Environment
 import cv2
 # parameter setting
-game_name = 'BreakoutNoFrameskip-v4'
+
 saved_file_name = 'sar_pair.npy'
 esc = 0
 
@@ -100,7 +100,8 @@ def play_realtime(save_or_not):
             time.sleep(0.1)
 
 if __name__ == '__main__':
-    env = Environment(game_name, 0, atari_wrapper=True)
+    game_name = 'Breakout-v0'
+    env = Environment(game_name, atari_wrapper=True, test=0)
 
     print('We are playing {}'.format(game_name))
     print('-------- game information --------')

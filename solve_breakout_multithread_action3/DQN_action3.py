@@ -1,9 +1,9 @@
 import numpy as np
 import tensorflow as tf
-from multithread_base import MultithreadBase
+from DQN_base import DQN_Base
 
 
-class DQN(MultithreadBase):
+class DQN(DQN_Base):
     def __init__(self,
                  run_name,
                  input_shape,
@@ -47,7 +47,7 @@ class DQN(MultithreadBase):
                       'fc1': tf.get_variable(name+'_w_fc1', [3136, 512],
                                              initializer=initializer, collections=c_name, trainable=trainable),
 
-                      'out': tf.get_variable(name+'_w_out', [512, 4],
+                      'out': tf.get_variable(name+'_w_out', [512, self.n_action],
                                              initializer=initializer, collections=c_name, trainable=trainable)}
 
             bias = {'conv1': tf.get_variable(name+'_b_conv1', [32],
@@ -62,7 +62,7 @@ class DQN(MultithreadBase):
                     'fc1': tf.get_variable(name+'_b_fc1', [512],
                                            initializer=initializer, collections=c_name, trainable=trainable),
 
-                    'out': tf.get_variable(name+'_b_out', [4],
+                    'out': tf.get_variable(name+'_b_out', [self.n_action],
                                            initializer=initializer, collections=c_name, trainable=trainable)}
 
             conv1 = tf.nn.relu(tf.nn.conv2d(x, weight['conv1'], strides=[1, 4, 4, 1], padding='VALID') + bias['conv1'])
@@ -97,6 +97,8 @@ class DQN(MultithreadBase):
         self.Summary_weight = tf.summary.merge(Summary1+Summary2)
         self.A_index = tf.one_hot(self.A, self.n_action)
         self.Q_eval_spec_a = tf.reduce_sum(self.Q_eval * self.A_index, axis=1)
-        self.Regre_value = self.Q_targ_max_value * self.gamma * (1-self.D) + self.R
+        self.Constant_1 = tf.constant(1, dtype=tf.float32)
+        self.Regre_value = self.Q_targ_max_value * self.gamma * (self.Constant_1-self.D) + self.R
         self.Loss = tf.reduce_mean(tf.square(self.Q_eval_spec_a - self.Regre_value))
         self.Train = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.Loss)
+        # self.Train = tf.train.RMSPropOptimizer(learning_rate=self.learning_rate).minimize(self.Loss)
