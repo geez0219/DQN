@@ -10,7 +10,7 @@ import gym
 import os
 import argparse
 import time
-from solve_breakout_multithread_action3.DQN_full import DQN
+from solve_breakout.DQN_full import DQN
 from environment import Environment
 
 

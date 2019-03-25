@@ -12,13 +12,13 @@ import shutil
 import threading
 import time
 import argparse
-from solve_breakout_multithread_action3.DQN_action3 import DQN
+from solve_breakout_multithread_action3.DQN_full import DQN
 from environment import Environment
 from replaybuffer import ReplayBuffer
 
 record_period = 100
 train_batch = 32
-epislon = 1
+epsilon = 1
 lock = threading.Lock()
 replay_buffer = ReplayBuffer(size=100000, input_shape=[84, 84, 4])
 
@@ -43,7 +43,7 @@ def run_train_thread(agent, arg):
     # agent.model_pos_check()
 
 
-def run_play_thread(agent, env, epislon, thread_idx, record, arg):
+def run_play_thread(agent, env, epsilon, thread_idx, record, arg):
     if record is True:
         # play with absolute greedy algorithm and log the result
         for i in range(int(arg.update_period / arg.thread_num)):
@@ -53,7 +53,7 @@ def run_play_thread(agent, env, epislon, thread_idx, record, arg):
             done = 0
             game_reward = 0
             while not done:
-                if np.random.uniform(0, 1) < epislon:
+                if np.random.uniform(0, 1) < epsilon:
                     action = agent.random_action()
                 else:
                     action = agent.choose_action(obs)
@@ -69,12 +69,12 @@ def run_play_thread(agent, env, epislon, thread_idx, record, arg):
             # print("play_thread{}:{}".format(thread_idx, i))
 
     else:
-        # play with epislon greedy algorithm and doesn't log the result
+        # play with epsilon greedy algorithm and doesn't log the result
         for i in range(int(arg.update_period / arg.thread_num)):
             obs = env.reset()
             done = 0
             while not done:
-                if np.random.uniform(0, 1) < epislon:
+                if np.random.uniform(0, 1) < epsilon:
                     action = agent.random_action()
                 else:
                     action = agent.choose_action(obs)
@@ -125,10 +125,12 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--thread_num", help="the number of playing thread", type=int, default=10)
     parser.add_argument("-n", "--game_num", help="the number of training games", type=int, default=500000)
     parser.add_argument("-u", "--update_period", help="the update period of target network", type=int, default=2500)
-    parser.add_argument("-e1", "--epislon_min", help="the epislon of exploration", type=float, default=2e-3)
-    parser.add_argument("-e2", "--epislon_decrease", help="the epislon decrease", type=float, default=2e-5)
+    parser.add_argument("-e1", "--epsilon_min", help="the epsilon of exploration", type=float, default=2e-3)
+    parser.add_argument("-e2", "--epsilon_decrease", help="the epsilon decrease", type=float, default=2e-5)
     parser.add_argument("-g", "--gamma", help="the gamma of DQN learning", type=float, default=0.99)
     parser.add_argument("-l", "--learning_rate", help="the learning rate of DQN training", type=float, default=5e-4)
+    parser.add_argument("-d1", "--double_DQN", help="adopt double DQN if call", action='store_true')
+    parser.add_argument("-d2", "--dueling_DQN", help="adopt dueling DQN if call", action='store_true')
 
     arg = parser.parse_args()
 
@@ -138,10 +140,12 @@ if __name__ == "__main__":
     print("thread_num: {}".format(arg.thread_num))
     print("games_num: {}".format(arg.game_num))
     print("update_period: {}".format(arg.update_period))
-    print("epislon_min: {}".format(arg.epislon_min))
-    print("epislon_decrease: {}".format(arg.epislon_decrease))
+    print("epsilon_min: {}".format(arg.epsilon_min))
+    print("epsilon_decrease: {}".format(arg.epsilon_decrease))
     print("gamma: {}".format(arg.gamma))
     print("learning_rate: {}".format(arg.learning_rate))
+    print("double_DQN: {}".format(arg.double_DQN))
+    print("dueling_DQN: {}".format(arg.dueling_DQN))
     print("---------------------------------------")
 
     # record file io
@@ -158,7 +162,9 @@ if __name__ == "__main__":
                       record_io=False,
                       record=True,
                       save_path=arg.save_path,
-                      gpu_fraction=0.45)
+                      gpu_fraction=0.45,
+                      double_DQN=arg.double_DQN,
+                      dueling_DQN=arg.dueling_DQN)
     if mode == 1:
         agent_train.load(arg.save_path, arg.run_name)
 
@@ -172,7 +178,9 @@ if __name__ == "__main__":
                             record_io=False,
                             record=True if i == 0 else False,
                             save_path=arg.save_path,
-                            gpu_fraction=0.45 / arg.thread_num)
+                            gpu_fraction=0.45 / arg.thread_num,
+                            double_DQN=arg.double_DQN,
+                            dueling_DQN=arg.dueling_DQN)
         if mode == 1:
             agent_play[i].load(arg.save_path, arg.run_name)
 
@@ -182,7 +190,7 @@ if __name__ == "__main__":
         start_time1 = time.time()
         for j in range(arg.thread_num):
             play_thread[j] = threading.Thread(target=run_play_thread,
-                                              args=(agent_play[j], env[j], epislon, j, True if j == 0 else False, arg),
+                                              args=(agent_play[j], env[j], epsilon, j, True if j == 0 else False, arg),
                                               name="play_thread{}".format(j))
             play_thread[j].start()
 
@@ -199,4 +207,4 @@ if __name__ == "__main__":
         print("finish training and playing thread {}. thread creating time: {}, thread running time: {} agent loading time: {}"
               .format(i, start_time2 - start_time1, start_time3 - start_time2, time.time() - start_time3))
 
-        epislon = max(epislon - arg.epislon_decrease * arg.update_period, arg.epislon_min)
+        epsilon = max(epsilon - arg.epsilon_decrease * arg.update_period, arg.epsilon_min)
